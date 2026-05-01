@@ -1,6 +1,11 @@
-import type { Box, PalletStandard } from '../types';
-
-export type BoxOrientation = 'length-along-pallet' | 'width-along-pallet';
+import type {
+  Box,
+  BoxOrientation,
+  LayerAlignment,
+  LayerConfig,
+  LayerOrientationChoice,
+  PalletStandard,
+} from '../types';
 
 export type LayerLayout = {
   rows: number;
@@ -11,29 +16,79 @@ export type LayerLayout = {
   footprintWidth: number;
   marginLength: number;
   marginWidth: number;
+  offsetLength: number;
+  offsetWidth: number;
 };
+
+export type LayerBounds = {
+  length: number;
+  width: number;
+  originLength: number;
+  originWidth: number;
+};
+
+export function alignmentFractions(alignment: LayerAlignment): {
+  h: number;
+  v: number;
+} {
+  const [v, h] = alignment.split('-') as [
+    'top' | 'middle' | 'bottom',
+    'left' | 'center' | 'right',
+  ];
+  const vFrac = v === 'top' ? 0 : v === 'middle' ? 0.5 : 1;
+  const hFrac = h === 'left' ? 0 : h === 'center' ? 0.5 : 1;
+  return { h: hFrac, v: vFrac };
+}
 
 export function computeLayerLayout(
   box: Box,
   pallet: PalletStandard,
+  config?: {
+    orientation?: LayerOrientationChoice;
+    alignment?: LayerAlignment;
+  },
+  bounds?: LayerBounds,
 ): LayerLayout {
-  const a = {
-    cols: Math.floor(pallet.length / box.length),
-    rows: Math.floor(pallet.width / box.width),
+  const region = bounds ?? {
+    length: pallet.length,
+    width: pallet.width,
+    originLength: 0,
+    originWidth: 0,
+  };
+  const orientationChoice = config?.orientation ?? 'auto';
+  const alignment = config?.alignment ?? 'middle-center';
+
+  const along = {
+    cols: Math.floor(region.length / box.length),
+    rows: Math.floor(region.width / box.width),
     fpL: box.length,
     fpW: box.width,
     orientation: 'length-along-pallet' as const,
   };
-  const b = {
-    cols: Math.floor(pallet.length / box.width),
-    rows: Math.floor(pallet.width / box.length),
+  const across = {
+    cols: Math.floor(region.length / box.width),
+    rows: Math.floor(region.width / box.length),
     fpL: box.width,
     fpW: box.length,
     orientation: 'width-along-pallet' as const,
   };
-  const winner = a.cols * a.rows >= b.cols * b.rows ? a : b;
+
+  let winner: typeof along | typeof across;
+  if (orientationChoice === 'length-along-pallet') {
+    winner = along;
+  } else if (orientationChoice === 'width-along-pallet') {
+    winner = across;
+  } else {
+    winner =
+      along.cols * along.rows >= across.cols * across.rows ? along : across;
+  }
+
   const cols = Math.max(0, winner.cols);
   const rows = Math.max(0, winner.rows);
+  const marginLength = region.length - cols * winner.fpL;
+  const marginWidth = region.width - rows * winner.fpW;
+  const { h, v } = alignmentFractions(alignment);
+
   return {
     rows,
     cols,
@@ -41,21 +96,46 @@ export function computeLayerLayout(
     orientation: winner.orientation,
     footprintLength: winner.fpL,
     footprintWidth: winner.fpW,
-    marginLength: pallet.length - cols * winner.fpL,
-    marginWidth: pallet.width - rows * winner.fpW,
+    marginLength,
+    marginWidth,
+    offsetLength: region.originLength + marginLength * h,
+    offsetWidth: region.originWidth + marginWidth * v,
   };
 }
 
-export function totalBoxes(layout: LayerLayout, layersHigh: number): number {
-  return layout.boxesPerLayer * layersHigh;
+export function computeLayerLayouts(
+  box: Box,
+  pallet: PalletStandard,
+  layers: ReadonlyArray<LayerConfig>,
+): Array<LayerLayout> {
+  const result: Array<LayerLayout> = [];
+  let bounds: LayerBounds = {
+    length: pallet.length,
+    width: pallet.width,
+    originLength: 0,
+    originWidth: 0,
+  };
+
+  for (const layer of layers) {
+    const layout = computeLayerLayout(box, pallet, layer, bounds);
+    result.push(layout);
+    bounds = {
+      length: layout.cols * layout.footprintLength,
+      width: layout.rows * layout.footprintWidth,
+      originLength: layout.offsetLength,
+      originWidth: layout.offsetWidth,
+    };
+  }
+
+  return result;
 }
 
-export function totalUnits(
-  layout: LayerLayout,
-  layersHigh: number,
-  pouchesPerBox: number,
-): number {
-  return totalBoxes(layout, layersHigh) * pouchesPerBox;
+export function totalBoxes(layouts: ReadonlyArray<LayerLayout>): number {
+  let sum = 0;
+  for (const l of layouts) {
+    sum += l.boxesPerLayer;
+  }
+  return sum;
 }
 
 export function formatInches(value: number): string {

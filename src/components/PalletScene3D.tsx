@@ -14,11 +14,11 @@ import type { Box, PalletStandard } from '../types';
 type Props = {
   pallet: PalletStandard;
   box: Box;
-  layout: LayerLayout;
-  layersHigh: number;
+  layouts: ReadonlyArray<LayerLayout>;
 };
 
-export function PalletScene3D({ pallet, box, layout, layersHigh }: Props) {
+export function PalletScene3D({ pallet, box, layouts }: Props) {
+  const layersHigh = layouts.length;
   const totalH = PALLET_HEIGHT + box.height * layersHigh;
   const camDist = Math.max(pallet.length, pallet.width, totalH) * 2.2;
 
@@ -48,12 +48,7 @@ export function PalletScene3D({ pallet, box, layout, layersHigh }: Props) {
 
       <group position={[0, 0, 0]}>
         <Pallet length={pallet.length} width={pallet.width} />
-        <BoxStack
-          box={box}
-          layout={layout}
-          pallet={pallet}
-          layersHigh={layersHigh}
-        />
+        <BoxStack box={box} layouts={layouts} pallet={pallet} />
       </group>
 
       <mesh
@@ -157,48 +152,80 @@ function Pallet({ length, width }: { length: number; width: number }) {
   );
 }
 
+const BOX_FILL = '#C09569';
+const BOX_FILL_ALT = '#BA9066';
+
 function BoxStack({
   box,
-  layout,
+  layouts,
   pallet,
-  layersHigh,
 }: {
   box: Box;
-  layout: LayerLayout;
+  layouts: ReadonlyArray<LayerLayout>;
   pallet: PalletStandard;
-  layersHigh: number;
 }) {
-  if (layout.boxesPerLayer === 0) {
-    return null;
-  }
-  const fpL = layout.footprintLength;
-  const fpW = layout.footprintWidth;
   const baseY = PALLET_HEIGHT;
+  const boxes: Array<{
+    x: number;
+    y: number;
+    z: number;
+    fpL: number;
+    fpW: number;
+    color: string;
+    key: string;
+  }> = [];
 
-  const startX = -pallet.length / 2 + layout.marginLength / 2 + fpL / 2;
-  const startZ = -pallet.width / 2 + layout.marginWidth / 2 + fpW / 2;
-
-  const boxes: Array<{ x: number; y: number; z: number; key: string }> = [];
-  for (let layer = 0; layer < layersHigh; layer++) {
+  for (let layer = 0; layer < layouts.length; layer++) {
+    const ll = layouts[layer];
+    if (ll.boxesPerLayer === 0) {
+      continue;
+    }
+    const fpL = ll.footprintLength;
+    const fpW = ll.footprintWidth;
+    const startX = -pallet.length / 2 + ll.offsetLength + fpL / 2;
+    const startZ = -pallet.width / 2 + ll.offsetWidth + fpW / 2;
     const y = baseY + layer * box.height + box.height / 2;
-    for (let row = 0; row < layout.rows; row++) {
-      for (let col = 0; col < layout.cols; col++) {
-        const x = startX + col * fpL;
-        const z = startZ + row * fpW;
-        boxes.push({ x, y, z, key: `${layer}-${row}-${col}` });
+
+    for (let row = 0; row < ll.rows; row++) {
+      for (let col = 0; col < ll.cols; col++) {
+        boxes.push({
+          x: startX + col * fpL,
+          y,
+          z: startZ + row * fpW,
+          fpL,
+          fpW,
+          color: (row + col + layer) % 2 === 0 ? BOX_FILL : BOX_FILL_ALT,
+          key: `${layer}-${row}-${col}`,
+        });
       }
     }
   }
 
+  const tapeThickness = Math.max(box.height * 0.015, 0.05);
+
   return (
     <group>
-      {boxes.map(({ x, y, z, key }) => (
-        <mesh key={key} position={[x, y, z]} castShadow receiveShadow>
-          <boxGeometry args={[fpL * 0.985, box.height * 0.985, fpW * 0.985]} />
-          <meshStandardMaterial color="#C09569" roughness={0.95} />
-          <Edges color="#7B5A36" threshold={15} />
-        </mesh>
-      ))}
+      {boxes.map(({ x, y, z, fpL, fpW, color, key }) => {
+        const isLong = fpL >= fpW;
+        const tapeLengthX = isLong ? fpL * 0.7 : fpL * 0.18;
+        const tapeLengthZ = isLong ? fpW * 0.18 : fpW * 0.7;
+        const tapeY = y + box.height / 2 + tapeThickness / 2;
+        return (
+          <group key={key}>
+            <mesh position={[x, y, z]} castShadow receiveShadow>
+              <boxGeometry
+                args={[fpL * 0.985, box.height * 0.985, fpW * 0.985]}
+              />
+              <meshStandardMaterial color={color} roughness={0.95} />
+              <Edges color="#7B5A36" threshold={15} />
+            </mesh>
+            <mesh position={[x, tapeY, z]} castShadow>
+              <boxGeometry args={[tapeLengthX, tapeThickness, tapeLengthZ]} />
+              <meshStandardMaterial color="#E0C29B" roughness={0.9} />
+            </mesh>
+          </group>
+        );
+      })}
     </group>
   );
 }

@@ -32,18 +32,23 @@ export function BoxSizeCard({ box }: Props) {
   };
 
   const corners = Object.values(c);
-  const padX = Math.max(L, W) * 0.45;
-  const padY = Math.max(L, W, H) * 0.3;
+  const padX = Math.max(L, W) * 0.6;
+  const padY = Math.max(L, W, H) * 0.45;
   const minX = Math.min(...corners.map((p) => p.sx)) - padX;
-  const maxX = Math.max(...corners.map((p) => p.sx)) + padX * 0.6;
+  const maxX = Math.max(...corners.map((p) => p.sx)) + padX * 0.8;
   const minY = Math.min(...corners.map((p) => p.sy)) - padY * 0.4;
-  const maxY = Math.max(...corners.map((p) => p.sy)) + padY * 0.7;
+  const maxY = Math.max(...corners.map((p) => p.sy)) + padY * 0.95;
   const stroke = Math.max(L, W) * 0.012;
   const fontSize = Math.max(L, W, H) * 0.13;
 
-  const tapeMidY = c.ntr.sy + (c.ftr.sy - c.ntr.sy) * 0.5;
-  const tapeStartX = c.ntr.sx + (c.ntl.sx - c.ntr.sx) * 0.05;
-  const tapeEndX = c.ntr.sx + (c.ntl.sx - c.ntr.sx) * 0.95;
+  // Tape runs down the center of the top face along the long axis.
+  const tapePad = 0.15;
+  const tapeStart =
+    L >= W ? iso(L * tapePad, H, W / 2) : iso(L / 2, H, W * tapePad);
+  const tapeEnd =
+    L >= W
+      ? iso(L * (1 - tapePad), H, W / 2)
+      : iso(L / 2, H, W * (1 - tapePad));
 
   return (
     <section className="overflow-hidden rounded-lg border border-navy/10 bg-canvas-card shadow-card">
@@ -89,10 +94,10 @@ export function BoxSizeCard({ box }: Props) {
               strokeLinejoin="round"
             />
             <line
-              x1={tapeStartX}
-              y1={tapeMidY}
-              x2={tapeEndX}
-              y2={tapeMidY}
+              x1={tapeStart.sx}
+              y1={tapeStart.sy}
+              x2={tapeEnd.sx}
+              y2={tapeEnd.sy}
               stroke={COLORS.tape}
               strokeWidth={stroke * 1.2}
             />
@@ -104,15 +109,15 @@ export function BoxSizeCard({ box }: Props) {
               strokeLinecap="round"
             >
               <line
-                x1={c.fbl.sx - padX * 0.15}
+                x1={c.fbl.sx - padX * 0.32}
                 y1={c.ftl.sy}
-                x2={c.fbl.sx - padX * 0.15}
+                x2={c.fbl.sx - padX * 0.32}
                 y2={c.fbl.sy}
                 markerStart="url(#box-arrow)"
                 markerEnd="url(#box-arrow)"
               />
               <text
-                x={c.fbl.sx - padX * 0.25}
+                x={c.fbl.sx - padX * 0.42}
                 y={(c.ftl.sy + c.fbl.sy) / 2}
                 fontSize={fontSize}
                 fontWeight={700}
@@ -125,40 +130,40 @@ export function BoxSizeCard({ box }: Props) {
 
               <line
                 x1={c.fbl.sx}
-                y1={c.fbl.sy + padY * 0.18}
+                y1={c.fbl.sy + padY * 0.38}
                 x2={c.fbr.sx}
-                y2={c.fbr.sy + padY * 0.18}
+                y2={c.fbr.sy + padY * 0.38}
                 markerStart="url(#box-arrow)"
                 markerEnd="url(#box-arrow)"
               />
               <text
-                x={(c.fbl.sx + c.fbr.sx) / 2 - fontSize * 0.4}
-                y={(c.fbl.sy + c.fbr.sy) / 2 + padY * 0.18 + fontSize * 1.2}
-                fontSize={fontSize}
-                fontWeight={700}
-                textAnchor="middle"
-                stroke="none"
-              >
-                {formatInches(W)}
-              </text>
-
-              <line
-                x1={c.fbr.sx + padX * 0.05}
-                y1={c.fbr.sy + padY * 0.05}
-                x2={c.nbr.sx + padX * 0.05}
-                y2={c.nbr.sy + padY * 0.05}
-                markerStart="url(#box-arrow)"
-                markerEnd="url(#box-arrow)"
-              />
-              <text
-                x={(c.fbr.sx + c.nbr.sx) / 2 + fontSize * 0.6}
-                y={(c.fbr.sy + c.nbr.sy) / 2 + padY * 0.05 + fontSize * 1.2}
+                x={(c.fbl.sx + c.fbr.sx) / 2 - fontSize * 0.85}
+                y={(c.fbl.sy + c.fbr.sy) / 2 + padY * 0.38 + fontSize * 1.2}
                 fontSize={fontSize}
                 fontWeight={700}
                 textAnchor="middle"
                 stroke="none"
               >
                 {formatInches(L)}
+              </text>
+
+              <line
+                x1={c.fbr.sx + padX * 0.22}
+                y1={c.fbr.sy + padY * 0.22}
+                x2={c.nbr.sx + padX * 0.22}
+                y2={c.nbr.sy + padY * 0.22}
+                markerStart="url(#box-arrow)"
+                markerEnd="url(#box-arrow)"
+              />
+              <text
+                x={(c.fbr.sx + c.nbr.sx) / 2 + fontSize * 2.0}
+                y={(c.fbr.sy + c.nbr.sy) / 2 + padY * 0.22 + fontSize * 1.2}
+                fontSize={fontSize}
+                fontWeight={700}
+                textAnchor="middle"
+                stroke="none"
+              >
+                {formatInches(W)}
               </text>
             </g>
           </svg>

@@ -28,11 +28,39 @@ export type Box = {
   height: number;
 };
 
+export type BoxOrientation = 'length-along-pallet' | 'width-along-pallet';
+
+export type LayerOrientationChoice = 'auto' | BoxOrientation;
+
+export type LayerAlignment =
+  | 'top-left'
+  | 'top-center'
+  | 'top-right'
+  | 'middle-left'
+  | 'middle-center'
+  | 'middle-right'
+  | 'bottom-left'
+  | 'bottom-center'
+  | 'bottom-right';
+
+export type LayerConfig = {
+  orientation: LayerOrientationChoice;
+  alignment: LayerAlignment;
+};
+
 export type PalletConfig = {
   palletId: PalletStandardId;
   box: Box;
-  layersHigh: number;
-  pouchesPerBox: number;
+  layers: Array<LayerConfig>;
+};
+
+export type SavedConfig = {
+  id: string;
+  name: string;
+  palletId: PalletStandardId;
+  box: Box;
+  layers: Array<LayerConfig>;
+  updatedAt: number;
 };
 
 export type ViewMode = '3d' | '2d';

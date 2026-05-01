@@ -1,16 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
-  <defs>
-    <linearGradient id="bolt-grad" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#60a5fa"/>
-      <stop offset="100%" stop-color="#2563eb"/>
-    </linearGradient>
-    <filter id="glow">
-      <feGaussianBlur stdDeviation="1.2" result="blur"/>
-      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
-    </filter>
-  </defs>
-  <rect width="32" height="32" rx="7" fill="#111827"/>
-  <g filter="url(#glow)" transform="rotate(45 16 16)">
-    <path d="M18 5.5L11 17h4.5L13 26.5 21 15h-5L18 5.5z" fill="url(#bolt-grad)" stroke="#93c5fd" stroke-width="0.5" stroke-linejoin="round"/>
+  <g stroke="#5c3a1a" stroke-width="0.6" stroke-linejoin="round">
+    <polygon points="16,5 27,10.5 16,16 5,10.5" fill="#c89968"/>
+    <polygon points="5,10.5 16,16 16,27 5,21.5" fill="#a67244"/>
+    <polygon points="27,10.5 16,16 16,27 27,21.5" fill="#7d4f25"/>
+    <line x1="16" y1="5" x2="16" y2="16" stroke="#5c3a1a" stroke-width="0.5"/>
   </g>
 </svg>

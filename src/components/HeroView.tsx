@@ -8,8 +8,7 @@ import { PalletScene3D } from './PalletScene3D';
 type Props = {
   pallet: PalletStandard;
   box: Box;
-  layout: LayerLayout;
-  layersHigh: number;
+  layouts: ReadonlyArray<LayerLayout>;
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
 };
@@ -17,8 +16,7 @@ type Props = {
 export function HeroView({
   pallet,
   box,
-  layout,
-  layersHigh,
+  layouts,
   viewMode,
   onViewModeChange,
 }: Props) {
@@ -33,20 +31,10 @@ export function HeroView({
       <div className="absolute inset-0">
         <Suspense fallback={null}>
           {viewMode === '3d' ? (
-            <PalletScene3D
-              pallet={pallet}
-              box={box}
-              layout={layout}
-              layersHigh={layersHigh}
-            />
+            <PalletScene3D pallet={pallet} box={box} layouts={layouts} />
           ) : (
             <div className="h-full w-full p-6">
-              <PalletScene2D
-                pallet={pallet}
-                box={box}
-                layout={layout}
-                layersHigh={layersHigh}
-              />
+              <PalletScene2D pallet={pallet} box={box} layouts={layouts} />
             </div>
           )}
         </Suspense>
