@@ -1,5 +1,4 @@
 import type { ReactElement } from 'react';
-import { PALLET_HEIGHT } from '../constants';
 import type { LayerLayout } from '../lib/layout';
 import { formatInches } from '../lib/layout';
 import type { Box, PalletStandard } from '../types';
@@ -65,7 +64,7 @@ export function OrthoView({ view, pallet, box, layouts }: Props) {
 
   const layersHigh = layouts.length;
   const stackHeight = layersHigh * box.height;
-  const totalHeight = stackHeight + PALLET_HEIGHT;
+  const totalHeight = stackHeight + pallet.height;
   const palletAxis = view === 'front' ? pallet.width : pallet.length;
 
   return (
@@ -90,7 +89,7 @@ export function OrthoView({ view, pallet, box, layouts }: Props) {
       <PalletElevation
         width={palletAxis}
         y={stackHeight}
-        height={PALLET_HEIGHT}
+        height={pallet.height}
         cellStroke={cellStroke}
       />
     </OrthoSvg>

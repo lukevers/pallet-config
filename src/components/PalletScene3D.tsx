@@ -3,7 +3,6 @@ import { Canvas } from '@react-three/fiber';
 import {
   PALLET_BOTTOM_BOARDS,
   PALLET_DECK_THICKNESS,
-  PALLET_HEIGHT,
   PALLET_STRINGER_HEIGHT,
   PALLET_STRINGER_WIDTH,
   PALLET_TOP_BOARDS,
@@ -19,7 +18,7 @@ type Props = {
 
 export function PalletScene3D({ pallet, box, layouts }: Props) {
   const layersHigh = layouts.length;
-  const totalH = PALLET_HEIGHT + box.height * layersHigh;
+  const totalH = pallet.height + box.height * layersHigh;
   const camDist = Math.max(pallet.length, pallet.width, totalH) * 2.2;
 
   return (
@@ -47,7 +46,7 @@ export function PalletScene3D({ pallet, box, layouts }: Props) {
       <directionalLight position={[-50, 30, -30]} intensity={0.25} />
 
       <group position={[0, 0, 0]}>
-        <Pallet length={pallet.length} width={pallet.width} />
+        <Pallet length={pallet.length} width={pallet.width} height={pallet.height} />
         <BoxStack box={box} layouts={layouts} pallet={pallet} />
       </group>
 
@@ -73,12 +72,20 @@ export function PalletScene3D({ pallet, box, layouts }: Props) {
   );
 }
 
-function Pallet({ length, width }: { length: number; width: number }) {
+function Pallet({
+  length,
+  width,
+  height,
+}: {
+  length: number;
+  width: number;
+  height: number;
+}) {
   const deckBoardCount = PALLET_TOP_BOARDS;
   const deckBoardWidth = (width * 0.92) / deckBoardCount;
   const deckBoardGap =
     (width - deckBoardCount * deckBoardWidth) / (deckBoardCount - 1);
-  const deckY = PALLET_HEIGHT - PALLET_DECK_THICKNESS / 2;
+  const deckY = height - PALLET_DECK_THICKNESS / 2;
 
   const bottomBoardCount = PALLET_BOTTOM_BOARDS;
   const bottomBoardWidth = (width * 0.85) / bottomBoardCount;
@@ -164,7 +171,7 @@ function BoxStack({
   layouts: ReadonlyArray<LayerLayout>;
   pallet: PalletStandard;
 }) {
-  const baseY = PALLET_HEIGHT;
+  const baseY = pallet.height;
   const boxes: Array<{
     x: number;
     y: number;

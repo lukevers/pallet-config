@@ -1,4 +1,3 @@
-import { PALLET_HEIGHT } from '../constants';
 import type { LayerLayout } from '../lib/layout';
 import { formatInches, totalBoxes } from '../lib/layout';
 import type { Box, PalletStandard } from '../types';
@@ -12,7 +11,7 @@ type Props = {
 export function SummaryCard({ pallet, box, layouts }: Props) {
   const layersHigh = layouts.length;
   const boxes = totalBoxes(layouts);
-  const stackHeight = PALLET_HEIGHT + box.height * layersHigh;
+  const stackHeight = pallet.height + box.height * layersHigh;
 
   const perLayer = layouts.map((l) => l.boxesPerLayer);
   const minPerLayer = perLayer.length > 0 ? Math.min(...perLayer) : 0;

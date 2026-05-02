@@ -41,8 +41,8 @@ export function Controls({
               <option key={p.id} value={p.id}>
                 {p.label} —{' '}
                 {p.nativeUnit === 'in'
-                  ? `${p.nativeLength}" × ${p.nativeWidth}"`
-                  : `${p.nativeLength} × ${p.nativeWidth} mm`}
+                  ? `${p.nativeLength}" × ${p.nativeWidth}" × ${p.nativeHeight}"`
+                  : `${p.nativeLength} × ${p.nativeWidth} × ${p.nativeHeight} mm`}
               </option>
             ))}
           </select>

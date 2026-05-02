@@ -1,4 +1,3 @@
-import { PALLET_HEIGHT } from '../constants';
 import { iso, pathFromPoints } from '../lib/iso';
 import type { LayerLayout } from '../lib/layout';
 import { formatInches } from '../lib/layout';
@@ -186,7 +185,7 @@ function painterSort(faces: Array<Face>): Array<Face> {
 export function PalletScene2D({ pallet, box, layouts }: Props) {
   const L = pallet.length;
   const W = pallet.width;
-  const Hp = PALLET_HEIGHT;
+  const Hp = pallet.height;
   const Hb = box.height;
   const layersHigh = layouts.length;
 

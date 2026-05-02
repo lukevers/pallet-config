@@ -1,5 +1,6 @@
 export type PalletStandardId =
   | 'gma'
+  | 'chep'
   | 'drum'
   | 'square'
   | 'tall'
@@ -17,9 +18,11 @@ export type PalletStandard = {
   region: string;
   length: number;
   width: number;
+  height: number;
   nativeUnit: 'in' | 'mm';
   nativeLength: number;
   nativeWidth: number;
+  nativeHeight: number;
 };
 
 export type Box = {
