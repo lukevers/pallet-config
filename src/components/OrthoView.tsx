@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react';
 import type { LayerLayout } from '../lib/layout';
-import { formatInches } from '../lib/layout';
+import { formatInches, placementFootprint } from '../lib/layout';
 import type { Box, PalletStandard } from '../types';
 
 type View = 'top' | 'front' | 'side';
@@ -49,14 +49,17 @@ export function OrthoView({ view, pallet, box, layouts }: Props) {
           cellStroke={cellStroke}
         />
         <g clipPath="url(#ortho-top-pallet-clip)">
-          {layouts.map((layer, i) => (
+          {/*
+            Top view shows only the topmost layer (looking down at the pallet
+            from above). Render the last layer's placements only.
+          */}
+          {layouts.length > 0 ? (
             <TopLayerCells
-              // biome-ignore lint/suspicious/noArrayIndexKey: layer index is positional
-              key={`layer-${i}`}
-              layer={layer}
+              layer={layouts[layouts.length - 1]}
+              box={box}
               cellStroke={cellStroke}
             />
-          ))}
+          ) : null}
         </g>
       </OrthoSvg>
     );
@@ -80,6 +83,7 @@ export function OrthoView({ view, pallet, box, layouts }: Props) {
           // biome-ignore lint/suspicious/noArrayIndexKey: layer index is positional
           key={`layer-${i}`}
           layer={layer}
+          box={box}
           axis={view === 'front' ? 'width' : 'length'}
           rowY={(layersHigh - 1 - i) * box.height}
           rowH={box.height}
@@ -275,67 +279,69 @@ function PalletElevation({
 
 function TopLayerCells({
   layer,
+  box,
   cellStroke,
 }: {
   layer: LayerLayout;
+  box: Box;
   cellStroke: number;
 }) {
-  const startX = layer.offsetLength;
-  const startY = layer.offsetWidth;
-
   const cells: Array<ReactElement> = [];
-  for (let r = 0; r < layer.rows; r++) {
-    for (let c = 0; c < layer.cols; c++) {
-      const x = startX + c * layer.footprintLength;
-      const y = startY + r * layer.footprintWidth;
-      const fill = (r + c) % 2 === 0 ? COLORS.boxFill : COLORS.boxFillAlt;
-      cells.push(
-        <g key={`top-${r}-${c}`}>
-          <rect
-            x={x}
-            y={y}
-            width={layer.footprintLength}
-            height={layer.footprintWidth}
-            fill={fill}
-            stroke={COLORS.stroke}
-            strokeWidth={cellStroke}
-          />
-          <line
-            x1={x + layer.footprintLength * 0.15}
-            y1={y + layer.footprintWidth / 2}
-            x2={x + layer.footprintLength * 0.85}
-            y2={y + layer.footprintWidth / 2}
-            stroke={COLORS.tape}
-            strokeWidth={cellStroke * 1.5}
-          />
-        </g>,
-      );
-    }
+  for (let i = 0; i < layer.placements.length; i++) {
+    const placement = layer.placements[i];
+    const { fpL, fpW } = placementFootprint(box, placement);
+    const x = placement.offsetLength;
+    const y = placement.offsetWidth;
+    const fill = i % 2 === 0 ? COLORS.boxFill : COLORS.boxFillAlt;
+    cells.push(
+      <g key={`top-${i}`}>
+        <rect
+          x={x}
+          y={y}
+          width={fpL}
+          height={fpW}
+          fill={fill}
+          stroke={COLORS.stroke}
+          strokeWidth={cellStroke}
+        />
+        <line
+          x1={x + fpL * 0.15}
+          y1={y + fpW / 2}
+          x2={x + fpL * 0.85}
+          y2={y + fpW / 2}
+          stroke={COLORS.tape}
+          strokeWidth={cellStroke * 1.5}
+        />
+      </g>,
+    );
   }
   return <g>{cells}</g>;
 }
 
 function ElevationLayerRow({
   layer,
+  box,
   axis,
   rowY,
   rowH,
   cellStroke,
 }: {
   layer: LayerLayout;
+  box: Box;
   axis: 'width' | 'length';
   rowY: number;
   rowH: number;
   cellStroke: number;
 }) {
-  const count = axis === 'width' ? layer.rows : layer.cols;
-  const cellW = axis === 'width' ? layer.footprintWidth : layer.footprintLength;
-  const offset = axis === 'width' ? layer.offsetWidth : layer.offsetLength;
-  const startX = offset;
-
+  // Project each placement onto the chosen axis. Multiple placements at
+  // different positions on the perpendicular axis may project to overlapping
+  // rects; we draw them in placement order.
   const cells: Array<ReactElement> = [];
-  for (let i = 0; i < count; i++) {
-    const x = startX + i * cellW;
+  for (let i = 0; i < layer.placements.length; i++) {
+    const placement = layer.placements[i];
+    const { fpL, fpW } = placementFootprint(box, placement);
+    const cellW = axis === 'width' ? fpW : fpL;
+    const x = axis === 'width' ? placement.offsetWidth : placement.offsetLength;
     const fill = i % 2 === 0 ? COLORS.boxFill : COLORS.boxFillAlt;
     cells.push(
       <g key={`cell-${i}`}>

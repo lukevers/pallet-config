@@ -8,6 +8,7 @@ import {
   PALLET_TOP_BOARDS,
 } from '../constants';
 import type { LayerLayout } from '../lib/layout';
+import { placementFootprint } from '../lib/layout';
 import type { Box, PalletStandard } from '../types';
 
 type Props = {
@@ -46,7 +47,11 @@ export function PalletScene3D({ pallet, box, layouts }: Props) {
       <directionalLight position={[-50, 30, -30]} intensity={0.25} />
 
       <group position={[0, 0, 0]}>
-        <Pallet length={pallet.length} width={pallet.width} height={pallet.height} />
+        <Pallet
+          length={pallet.length}
+          width={pallet.width}
+          height={pallet.height}
+        />
         <BoxStack box={box} layouts={layouts} pallet={pallet} />
       </group>
 
@@ -184,27 +189,25 @@ function BoxStack({
 
   for (let layer = 0; layer < layouts.length; layer++) {
     const ll = layouts[layer];
-    if (ll.boxesPerLayer === 0) {
+    if (ll.placements.length === 0) {
       continue;
     }
-    const fpL = ll.footprintLength;
-    const fpW = ll.footprintWidth;
-    const startX = -pallet.length / 2 + ll.offsetLength + fpL / 2;
-    const startZ = -pallet.width / 2 + ll.offsetWidth + fpW / 2;
     const y = baseY + layer * box.height + box.height / 2;
 
-    for (let row = 0; row < ll.rows; row++) {
-      for (let col = 0; col < ll.cols; col++) {
-        boxes.push({
-          x: startX + col * fpL,
-          y,
-          z: startZ + row * fpW,
-          fpL,
-          fpW,
-          color: (row + col + layer) % 2 === 0 ? BOX_FILL : BOX_FILL_ALT,
-          key: `${layer}-${row}-${col}`,
-        });
-      }
+    for (let p = 0; p < ll.placements.length; p++) {
+      const placement = ll.placements[p];
+      const { fpL, fpW } = placementFootprint(box, placement);
+      const x = -pallet.length / 2 + placement.offsetLength + fpL / 2;
+      const z = -pallet.width / 2 + placement.offsetWidth + fpW / 2;
+      boxes.push({
+        x,
+        y,
+        z,
+        fpL,
+        fpW,
+        color: (p + layer) % 2 === 0 ? BOX_FILL : BOX_FILL_ALT,
+        key: `${layer}-${p}`,
+      });
     }
   }
 

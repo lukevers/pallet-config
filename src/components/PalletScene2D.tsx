@@ -1,6 +1,6 @@
 import { iso, pathFromPoints } from '../lib/iso';
 import type { LayerLayout } from '../lib/layout';
-import { formatInches } from '../lib/layout';
+import { formatInches, placementFootprint } from '../lib/layout';
 import type { Box, PalletStandard } from '../types';
 
 type Props = {
@@ -264,31 +264,27 @@ export function PalletScene2D({ pallet, box, layouts }: Props) {
 
   for (let layer = 0; layer < layersHigh; layer++) {
     const ll = layouts[layer];
-    if (ll.boxesPerLayer === 0) {
+    if (ll.placements.length === 0) {
       continue;
     }
-    const fpL = ll.footprintLength;
-    const fpW = ll.footprintWidth;
-    const startX = ll.offsetLength;
-    const startZ = ll.offsetWidth;
     const y0 = Hp + layer * Hb;
     const y1 = y0 + Hb;
-    for (let row = 0; row < ll.rows; row++) {
-      for (let col = 0; col < ll.cols; col++) {
-        const x0 = startX + col * fpL;
-        const z0 = startZ + row * fpW;
-        const fills = (row + col + layer) % 2 === 0 ? boxFills : boxFillsAlt;
-        faces.push(
-          ...generateBoxFaces(
-            { x0, x1: x0 + fpL, y0, y1, z0, z1: z0 + fpW },
-            fills,
-            COLORS.boxStroke,
-            boxStroke,
-            `box-${layer}-${row}-${col}`,
-            COLORS.boxTape,
-          ),
-        );
-      }
+    for (let p = 0; p < ll.placements.length; p++) {
+      const placement = ll.placements[p];
+      const { fpL, fpW } = placementFootprint(box, placement);
+      const x0 = placement.offsetLength;
+      const z0 = placement.offsetWidth;
+      const fills = (p + layer) % 2 === 0 ? boxFills : boxFillsAlt;
+      faces.push(
+        ...generateBoxFaces(
+          { x0, x1: x0 + fpL, y0, y1, z0, z1: z0 + fpW },
+          fills,
+          COLORS.boxStroke,
+          boxStroke,
+          `box-${layer}-${p}`,
+          COLORS.boxTape,
+        ),
+      );
     }
   }
   const sortedFaces = painterSort(faces);

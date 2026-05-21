@@ -13,7 +13,7 @@ export function SummaryCard({ pallet, box, layouts }: Props) {
   const boxes = totalBoxes(layouts);
   const stackHeight = pallet.height + box.height * layersHigh;
 
-  const perLayer = layouts.map((l) => l.boxesPerLayer);
+  const perLayer = layouts.map((l) => l.placements.length);
   const minPerLayer = perLayer.length > 0 ? Math.min(...perLayer) : 0;
   const maxPerLayer = perLayer.length > 0 ? Math.max(...perLayer) : 0;
   const perLayerLabel =

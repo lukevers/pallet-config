@@ -7,10 +7,11 @@ import { HeroView } from './components/HeroView';
 import { OrthoView } from './components/OrthoView';
 import { SummaryCard } from './components/SummaryCard';
 import { STANDARD_PALLETS } from './constants';
-import { computeLayerLayout, computeLayerLayouts } from './lib/layout';
+import { computeLayerLayouts } from './lib/layout';
 import {
   buildShareUrl,
   clearHash,
+  inferLegacyPattern,
   readSharedFromHash,
   type SharedPayload,
 } from './lib/share';
@@ -18,8 +19,10 @@ import { type ConfigStore, loadStore, saveStore } from './lib/storage';
 import type {
   Box,
   LayerConfig,
+  LayerOrientationChoice,
   PalletStandardId,
   SavedConfig,
+  StackingPattern,
   ViewMode,
 } from './types';
 
@@ -41,6 +44,8 @@ function makeDefaultConfig(name = 'Untitled configuration'): SavedConfig {
     name,
     palletId: 'gma',
     box: { length: 14, width: 10, height: 10 },
+    stackingPattern: 'block',
+    orientation: 'auto',
     layers: [],
     updatedAt: Date.now(),
   };
@@ -52,8 +57,87 @@ function fromShared(shared: SharedPayload): SavedConfig {
     name: shared.name || 'Shared configuration',
     palletId: shared.palletId,
     box: shared.box,
+    stackingPattern: shared.stackingPattern,
+    orientation: shared.orientation,
     layers: shared.layers,
     updatedAt: Date.now(),
+  };
+}
+
+// Migrate a legacy stored config (per-layer orientation, no stackingPattern)
+// into the current shape. Idempotent for already-migrated configs.
+function migrateConfig(raw: unknown): SavedConfig | null {
+  if (!raw || typeof raw !== 'object') {
+    return null;
+  }
+  const c = raw as Record<string, unknown>;
+  if (typeof c.id !== 'string' || typeof c.name !== 'string') {
+    return null;
+  }
+  if (typeof c.palletId !== 'string') {
+    return null;
+  }
+  const box = c.box;
+  if (
+    !box ||
+    typeof box !== 'object' ||
+    typeof (box as Record<string, unknown>).length !== 'number' ||
+    typeof (box as Record<string, unknown>).width !== 'number' ||
+    typeof (box as Record<string, unknown>).height !== 'number'
+  ) {
+    return null;
+  }
+  if (!Array.isArray(c.layers)) {
+    return null;
+  }
+  const layers: Array<LayerConfig> = [];
+  const legacyOrientations: Array<LayerOrientationChoice> = [];
+  for (const layer of c.layers) {
+    if (!layer || typeof layer !== 'object') {
+      return null;
+    }
+    const l = layer as Record<string, unknown>;
+    if (typeof l.alignment !== 'string') {
+      return null;
+    }
+    let boxCount: number | null = null;
+    if (l.boxCount != null && typeof l.boxCount === 'number') {
+      boxCount = Math.floor(l.boxCount);
+    }
+    legacyOrientations.push(
+      (typeof l.orientation === 'string'
+        ? l.orientation
+        : 'auto') as LayerOrientationChoice,
+    );
+    layers.push({
+      alignment: l.alignment as LayerConfig['alignment'],
+      boxCount,
+    });
+  }
+
+  let stackingPattern: StackingPattern;
+  let orientation: LayerOrientationChoice;
+  if (typeof c.stackingPattern === 'string') {
+    stackingPattern = c.stackingPattern as StackingPattern;
+    orientation = (
+      typeof c.orientation === 'string' ? c.orientation : 'auto'
+    ) as LayerOrientationChoice;
+  } else {
+    const inferred = inferLegacyPattern(legacyOrientations);
+    stackingPattern = inferred.pattern;
+    orientation = inferred.orientation;
+  }
+
+  return {
+    id: c.id as string,
+    name: c.name as string,
+    palletId: c.palletId as PalletStandardId,
+    box: box as { length: number; width: number; height: number },
+    stackingPattern,
+    orientation,
+    layers,
+    updatedAt:
+      typeof c.updatedAt === 'number' ? (c.updatedAt as number) : Date.now(),
   };
 }
 
@@ -61,7 +145,15 @@ function initialState(): AppState {
   const stored = loadStore();
   const shared = readSharedFromHash();
 
-  let configs: Array<SavedConfig> = stored?.configs ?? [];
+  let configs: Array<SavedConfig> = [];
+  if (stored?.configs && Array.isArray(stored.configs)) {
+    for (const raw of stored.configs) {
+      const migrated = migrateConfig(raw);
+      if (migrated) {
+        configs.push(migrated);
+      }
+    }
+  }
   let activeId: string | null = stored?.activeId ?? null;
 
   if (shared) {
@@ -119,14 +211,35 @@ export default function App() {
   );
 
   const layouts = useMemo(
-    () => computeLayerLayouts(active.box, pallet, active.layers),
-    [active.box, pallet, active.layers],
+    () =>
+      computeLayerLayouts(
+        active.box,
+        pallet,
+        active.stackingPattern,
+        active.orientation,
+        active.layers,
+      ),
+    [
+      active.box,
+      pallet,
+      active.stackingPattern,
+      active.orientation,
+      active.layers,
+    ],
   );
 
-  const baseLayout = useMemo(
-    () => computeLayerLayout(active.box, pallet),
-    [active.box, pallet],
-  );
+  // For empty-state detection: would a single layer with default settings
+  // place any boxes given current pallet/box/pattern/orientation?
+  const baseCapacity = useMemo(() => {
+    const probe = computeLayerLayouts(
+      active.box,
+      pallet,
+      active.stackingPattern,
+      active.orientation,
+      [{ alignment: 'middle-center', boxCount: null }],
+    );
+    return probe[0]?.capacity ?? 0;
+  }, [active.box, pallet, active.stackingPattern, active.orientation]);
 
   const setPalletId = useCallback((palletId: PalletStandardId) => {
     setState((prev) => mapActive(prev, (c) => ({ ...c, palletId })));
@@ -136,14 +249,19 @@ export default function App() {
     setState((prev) => mapActive(prev, (c) => ({ ...c, box })));
   }, []);
 
+  const setStackingPattern = useCallback((stackingPattern: StackingPattern) => {
+    setState((prev) => mapActive(prev, (c) => ({ ...c, stackingPattern })));
+  }, []);
+
+  const setOrientation = useCallback((orientation: LayerOrientationChoice) => {
+    setState((prev) => mapActive(prev, (c) => ({ ...c, orientation })));
+  }, []);
+
   const addLayer = useCallback(() => {
     setState((prev) =>
       mapActive(prev, (c) => ({
         ...c,
-        layers: [
-          ...c.layers,
-          { orientation: 'auto', alignment: 'middle-center' },
-        ],
+        layers: [...c.layers, { alignment: 'middle-center', boxCount: null }],
       })),
     );
   }, []);
@@ -204,6 +322,8 @@ export default function App() {
       name: active.name,
       palletId: active.palletId,
       box: active.box,
+      stackingPattern: active.stackingPattern,
+      orientation: active.orientation,
       layers: active.layers,
     });
     try {
@@ -216,7 +336,7 @@ export default function App() {
   }, [active]);
 
   const hasLayers = active.layers.length > 0;
-  const fitsBoxes = baseLayout.boxesPerLayer > 0;
+  const fitsBoxes = baseCapacity > 0;
 
   return (
     <div className="min-h-full bg-canvas font-sans text-navy-ink">
@@ -237,7 +357,12 @@ export default function App() {
           onPalletChange={setPalletId}
           box={active.box}
           onBoxChange={setBox}
+          stackingPattern={active.stackingPattern}
+          onStackingPatternChange={setStackingPattern}
+          orientation={active.orientation}
+          onOrientationChange={setOrientation}
           layers={active.layers}
+          layouts={layouts}
           onAddLayer={addLayer}
           onRemoveLayer={removeLayer}
           onUpdateLayer={updateLayer}

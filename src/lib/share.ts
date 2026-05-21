@@ -5,12 +5,15 @@ import type {
   LayerConfig,
   LayerOrientationChoice,
   PalletStandardId,
+  StackingPattern,
 } from '../types';
 
 export type SharedPayload = {
   name: string;
   palletId: PalletStandardId;
   box: Box;
+  stackingPattern: StackingPattern;
+  orientation: LayerOrientationChoice;
   layers: Array<LayerConfig>;
 };
 
@@ -30,6 +33,15 @@ const ALIGNMENTS: ReadonlySet<string> = new Set<LayerAlignment>([
   'bottom-left',
   'bottom-center',
   'bottom-right',
+]);
+
+const STACKING_PATTERNS: ReadonlySet<string> = new Set<StackingPattern>([
+  'block',
+  'row',
+  'brick',
+  'pinwheel',
+  'split-row',
+  'hybrid-pinwheel',
 ]);
 
 function toBase64Url(input: string): string {
@@ -90,6 +102,43 @@ export function clearHash(): void {
   window.history.replaceState(null, '', `${pathname}${search}`);
 }
 
+// Detect a stacking pattern from a sequence of legacy per-layer orientations.
+// All same → 'block'. Strict alternation → 'row'. Otherwise → 'block'.
+export function inferLegacyPattern(
+  orientations: ReadonlyArray<LayerOrientationChoice>,
+): { pattern: StackingPattern; orientation: LayerOrientationChoice } {
+  if (orientations.length === 0) {
+    return { pattern: 'block', orientation: 'auto' };
+  }
+  const first = orientations[0];
+  const allSame = orientations.every((o) => o === first);
+  if (allSame) {
+    return { pattern: 'block', orientation: first };
+  }
+  let alternating = true;
+  for (let i = 1; i < orientations.length; i++) {
+    const expected = i % 2 === 0 ? first : flipChoice(first);
+    if (orientations[i] !== expected) {
+      alternating = false;
+      break;
+    }
+  }
+  if (alternating && first !== 'auto') {
+    return { pattern: 'row', orientation: first };
+  }
+  return { pattern: 'block', orientation: 'auto' };
+}
+
+function flipChoice(o: LayerOrientationChoice): LayerOrientationChoice {
+  if (o === 'length-along-pallet') {
+    return 'width-along-pallet';
+  }
+  if (o === 'width-along-pallet') {
+    return 'length-along-pallet';
+  }
+  return 'auto';
+}
+
 function validatePayload(raw: unknown): SharedPayload | null {
   if (!raw || typeof raw !== 'object') {
     return null;
@@ -117,34 +166,79 @@ function validatePayload(raw: unknown): SharedPayload | null {
   ) {
     return null;
   }
-  const layers = obj.layers;
-  if (!Array.isArray(layers)) {
+  const layersRaw = obj.layers;
+  if (!Array.isArray(layersRaw)) {
     return null;
   }
-  const validated: Array<LayerConfig> = [];
-  for (const layer of layers) {
+
+  // We accept both old format (per-layer orientation, no stackingPattern) and
+  // new format (per-layer boxCount, top-level stackingPattern + orientation).
+  const layers: Array<LayerConfig> = [];
+  const legacyOrientations: Array<LayerOrientationChoice> = [];
+  let sawLegacyOrientation = false;
+  for (const layer of layersRaw) {
     if (!layer || typeof layer !== 'object') {
       return null;
     }
     const l = layer as Record<string, unknown>;
-    if (
-      typeof l.orientation !== 'string' ||
-      !ORIENTATIONS.has(l.orientation) ||
-      typeof l.alignment !== 'string' ||
-      !ALIGNMENTS.has(l.alignment)
-    ) {
+    if (typeof l.alignment !== 'string' || !ALIGNMENTS.has(l.alignment)) {
       return null;
     }
-    validated.push({
-      orientation: l.orientation as LayerOrientationChoice,
-      alignment: l.alignment as LayerAlignment,
-    });
+    const alignment = l.alignment as LayerAlignment;
+    let boxCount: number | null = null;
+    if (l.boxCount != null) {
+      if (
+        typeof l.boxCount !== 'number' ||
+        !Number.isFinite(l.boxCount) ||
+        l.boxCount < 0
+      ) {
+        return null;
+      }
+      boxCount = Math.floor(l.boxCount);
+    }
+    let layerOrientation: LayerOrientationChoice = 'auto';
+    if (typeof l.orientation === 'string') {
+      if (!ORIENTATIONS.has(l.orientation)) {
+        return null;
+      }
+      layerOrientation = l.orientation as LayerOrientationChoice;
+      sawLegacyOrientation = true;
+    }
+    legacyOrientations.push(layerOrientation);
+    layers.push({ alignment, boxCount });
   }
+
+  let stackingPattern: StackingPattern;
+  let orientation: LayerOrientationChoice;
+  if (
+    typeof obj.stackingPattern === 'string' &&
+    STACKING_PATTERNS.has(obj.stackingPattern)
+  ) {
+    stackingPattern = obj.stackingPattern as StackingPattern;
+    if (
+      typeof obj.orientation === 'string' &&
+      ORIENTATIONS.has(obj.orientation)
+    ) {
+      orientation = obj.orientation as LayerOrientationChoice;
+    } else {
+      orientation = 'auto';
+    }
+  } else if (sawLegacyOrientation) {
+    const inferred = inferLegacyPattern(legacyOrientations);
+    stackingPattern = inferred.pattern;
+    orientation = inferred.orientation;
+  } else {
+    stackingPattern = 'block';
+    orientation = 'auto';
+  }
+
   const name = typeof obj.name === 'string' ? obj.name : 'Shared configuration';
   return {
     name,
     palletId: palletId as PalletStandardId,
     box: { length: b.length, width: b.width, height: b.height },
-    layers: validated,
+    stackingPattern,
+    orientation,
+    layers,
   };
 }

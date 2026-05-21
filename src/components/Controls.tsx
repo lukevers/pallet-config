@@ -1,10 +1,13 @@
-import { Box as BoxIcon, Layers, Plus, Truck, X } from 'lucide-react';
+import { Box as BoxIcon, Grid3x3, Layers, Plus, Truck, X } from 'lucide-react';
 import { STANDARD_PALLETS } from '../constants';
+import type { LayerLayout } from '../lib/layout';
 import type {
   Box,
   LayerAlignment,
   LayerConfig,
+  LayerOrientationChoice,
   PalletStandardId,
+  StackingPattern,
 } from '../types';
 
 type Props = {
@@ -12,22 +15,48 @@ type Props = {
   onPalletChange: (id: PalletStandardId) => void;
   box: Box;
   onBoxChange: (box: Box) => void;
+  stackingPattern: StackingPattern;
+  onStackingPatternChange: (p: StackingPattern) => void;
+  orientation: LayerOrientationChoice;
+  onOrientationChange: (o: LayerOrientationChoice) => void;
   layers: ReadonlyArray<LayerConfig>;
+  layouts: ReadonlyArray<LayerLayout>;
   onAddLayer: () => void;
   onRemoveLayer: (index: number) => void;
   onUpdateLayer: (index: number, partial: Partial<LayerConfig>) => void;
 };
+
+const PATTERNS: ReadonlyArray<{ id: StackingPattern; label: string }> = [
+  { id: 'block', label: 'Block' },
+  { id: 'row', label: 'Row' },
+  { id: 'brick', label: 'Brick' },
+  { id: 'pinwheel', label: 'Pinwheel' },
+  { id: 'split-row', label: 'Split Row' },
+  { id: 'hybrid-pinwheel', label: 'Hybrid Pinwheel' },
+];
+
+// Patterns that meaningfully consume a primary orientation choice. The other
+// patterns derive orientation themselves (e.g. Pinwheel uses both axes).
+const ORIENTATION_AWARE: ReadonlySet<StackingPattern> =
+  new Set<StackingPattern>(['block', 'row', 'hybrid-pinwheel']);
 
 export function Controls({
   palletId,
   onPalletChange,
   box,
   onBoxChange,
+  stackingPattern,
+  onStackingPatternChange,
+  orientation,
+  onOrientationChange,
   layers,
+  layouts,
   onAddLayer,
   onRemoveLayer,
   onUpdateLayer,
 }: Props) {
+  const showOrientation = ORIENTATION_AWARE.has(stackingPattern);
+
   return (
     <div className="rounded-lg border border-navy/10 bg-canvas-card p-4 shadow-card">
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.4fr_1.6fr]">
@@ -71,6 +100,57 @@ export function Controls({
 
       <hr className="my-4 border-navy/10" />
 
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.4fr_1.6fr]">
+        <Field label="Stacking pattern" icon={<Grid3x3 size={14} />}>
+          <div className="flex flex-wrap gap-1 rounded-md border border-navy/15 bg-white p-1">
+            {PATTERNS.map((p) => {
+              const active = p.id === stackingPattern;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => onStackingPatternChange(p.id)}
+                  className={
+                    active
+                      ? 'flex-1 rounded bg-navy px-3 py-1.5 font-semibold text-[11px] text-white'
+                      : 'flex-1 rounded bg-transparent px-3 py-1.5 font-semibold text-[11px] text-navy/70 transition hover:bg-navy/5'
+                  }
+                >
+                  {p.label}
+                </button>
+              );
+            })}
+          </div>
+        </Field>
+
+        {showOrientation ? (
+          <Field label="Orientation" icon={<BoxIcon size={14} />}>
+            <div className="inline-flex w-full overflow-hidden rounded-md border border-navy/15">
+              <SegButton
+                active={orientation === 'auto'}
+                onClick={() => onOrientationChange('auto')}
+                label="Auto"
+              />
+              <SegButton
+                active={orientation === 'length-along-pallet'}
+                onClick={() => onOrientationChange('length-along-pallet')}
+                label="Length-along"
+                title="Length along pallet"
+              />
+              <SegButton
+                active={orientation === 'width-along-pallet'}
+                onClick={() => onOrientationChange('width-along-pallet')}
+                label="Width-along"
+                title="Width along pallet"
+              />
+            </div>
+          </Field>
+        ) : null}
+      </div>
+
+      <hr className="my-4 border-navy/10" />
+
       <Field
         label={
           layers.length === 0
@@ -90,20 +170,24 @@ export function Controls({
           </button>
         ) : (
           <div className="flex flex-wrap items-stretch gap-2">
-            {layers.map((layer, i) => (
-              <LayerCard
-                key={`layer-${
-                  // biome-ignore lint/suspicious/noArrayIndexKey: layers are positional
-                  i
-                }`}
-                layerNumber={i + 1}
-                isBottom={i === 0}
-                isTop={i === layers.length - 1}
-                config={layer}
-                onChange={(partial) => onUpdateLayer(i, partial)}
-                onRemove={() => onRemoveLayer(i)}
-              />
-            ))}
+            {layers.map((layer, i) => {
+              const capacity = layouts[i]?.capacity ?? 0;
+              return (
+                <LayerCard
+                  key={`layer-${
+                    // biome-ignore lint/suspicious/noArrayIndexKey: layers are positional
+                    i
+                  }`}
+                  layerNumber={i + 1}
+                  isBottom={i === 0}
+                  isTop={i === layers.length - 1}
+                  config={layer}
+                  capacity={capacity}
+                  onChange={(partial) => onUpdateLayer(i, partial)}
+                  onRemove={() => onRemoveLayer(i)}
+                />
+              );
+            })}
             <button
               type="button"
               onClick={onAddLayer}
@@ -124,6 +208,7 @@ function LayerCard({
   isBottom,
   isTop,
   config,
+  capacity,
   onChange,
   onRemove,
 }: {
@@ -131,12 +216,14 @@ function LayerCard({
   isBottom: boolean;
   isTop: boolean;
   config: LayerConfig;
+  capacity: number;
   onChange: (partial: Partial<LayerConfig>) => void;
   onRemove: () => void;
 }) {
   const suffix = isBottom ? ' (bottom)' : isTop ? ' (top)' : '';
+  const displayCount = config.boxCount ?? capacity;
   return (
-    <div className="relative flex min-w-[180px] flex-col gap-2 rounded-md border border-navy/10 bg-white p-2.5">
+    <div className="relative flex min-w-[260px] flex-col gap-2 rounded-md border border-navy/10 bg-white p-2.5">
       <div className="flex items-center justify-between gap-2">
         <span className="font-semibold text-[10px] text-navy/60 uppercase tracking-wider">
           Layer {layerNumber}
@@ -152,39 +239,48 @@ function LayerCard({
         </button>
       </div>
 
-      <div>
-        <span className="mb-1 block font-semibold text-[9px] text-navy/50 uppercase tracking-wider">
-          Orientation
-        </span>
-        <div className="inline-flex w-full overflow-hidden rounded border border-navy/15">
-          <SegButton
-            active={config.orientation === 'auto'}
-            onClick={() => onChange({ orientation: 'auto' })}
-            label="Auto"
-          />
-          <SegButton
-            active={config.orientation === 'length-along-pallet'}
-            onClick={() => onChange({ orientation: 'length-along-pallet' })}
-            label="L"
-            title="Length along pallet"
-          />
-          <SegButton
-            active={config.orientation === 'width-along-pallet'}
-            onClick={() => onChange({ orientation: 'width-along-pallet' })}
-            label="W"
-            title="Width along pallet"
+      <div className="flex items-start gap-3">
+        <div>
+          <span className="mb-1 block font-semibold text-[9px] text-navy/50 uppercase tracking-wider">
+            Alignment
+          </span>
+          <AlignmentGrid
+            value={config.alignment}
+            onChange={(alignment) => onChange({ alignment })}
           />
         </div>
-      </div>
-
-      <div>
-        <span className="mb-1 block font-semibold text-[9px] text-navy/50 uppercase tracking-wider">
-          Alignment
-        </span>
-        <AlignmentGrid
-          value={config.alignment}
-          onChange={(alignment) => onChange({ alignment })}
-        />
+        <div className="flex-1">
+          <span className="mb-1 block font-semibold text-[9px] text-navy/50 uppercase tracking-wider">
+            Boxes ({capacity} max)
+          </span>
+          <input
+            type="number"
+            min={0}
+            max={capacity}
+            step={1}
+            value={displayCount}
+            onChange={(e) => {
+              const raw = e.target.valueAsNumber;
+              if (Number.isNaN(raw)) {
+                return;
+              }
+              const clamped = Math.max(0, Math.min(capacity, Math.round(raw)));
+              onChange({
+                boxCount: clamped >= capacity ? null : clamped,
+              });
+            }}
+            className="w-full rounded-md border border-navy/15 bg-white px-2 py-1.5 font-medium text-navy-ink text-sm focus:border-navy focus:outline-none focus:ring-2 focus:ring-navy/20"
+          />
+          {config.boxCount != null && config.boxCount < capacity ? (
+            <button
+              type="button"
+              onClick={() => onChange({ boxCount: null })}
+              className="mt-1 text-[10px] text-navy/60 underline-offset-2 hover:underline"
+            >
+              Reset to max
+            </button>
+          ) : null}
+        </div>
       </div>
     </div>
   );

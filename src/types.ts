@@ -46,14 +46,24 @@ export type LayerAlignment =
   | 'bottom-center'
   | 'bottom-right';
 
+export type StackingPattern =
+  | 'block'
+  | 'row'
+  | 'brick'
+  | 'pinwheel'
+  | 'split-row'
+  | 'hybrid-pinwheel';
+
 export type LayerConfig = {
-  orientation: LayerOrientationChoice;
   alignment: LayerAlignment;
+  boxCount: number | null;
 };
 
 export type PalletConfig = {
   palletId: PalletStandardId;
   box: Box;
+  stackingPattern: StackingPattern;
+  orientation: LayerOrientationChoice;
   layers: Array<LayerConfig>;
 };
 
@@ -62,6 +72,8 @@ export type SavedConfig = {
   name: string;
   palletId: PalletStandardId;
   box: Box;
+  stackingPattern: StackingPattern;
+  orientation: LayerOrientationChoice;
   layers: Array<LayerConfig>;
   updatedAt: number;
 };
