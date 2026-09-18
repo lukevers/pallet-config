@@ -1,5 +1,5 @@
 import { iso, pathFromPoints } from '../lib/iso';
-import { formatInches } from '../lib/layout';
+import { formatInches, formatWeight } from '../lib/layout';
 import type { Box } from '../types';
 
 type Props = {
@@ -168,11 +168,20 @@ export function BoxSizeCard({ box }: Props) {
             </g>
           </svg>
         </div>
-        <div className="bg-navy px-5 py-4 text-white">
-          <h3 className="font-bold text-sm tracking-widest">BOX SIZE</h3>
-          <p className="mt-2 font-semibold text-base leading-tight">
-            {formatInches(L)} × {formatInches(W)} × {formatInches(H)}
-          </p>
+        <div className="flex flex-col justify-center bg-navy px-5 py-4 text-white">
+          <div>
+            <h3 className="font-bold text-sm tracking-widest">BOX SIZE</h3>
+            <p className="mt-2 font-semibold text-base leading-tight">
+              {formatInches(L)} × {formatInches(W)} × {formatInches(H)}
+            </p>
+          </div>
+          <hr className="my-3 border-white/20" />
+          <div>
+            <h3 className="font-bold text-sm tracking-widest">WEIGHT</h3>
+            <p className="mt-2 font-semibold text-base leading-tight">
+              {formatWeight(box.weightLbs, box.weightOz)}
+            </p>
+          </div>
         </div>
       </div>
     </section>

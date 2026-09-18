@@ -26,6 +26,8 @@ export type Box = {
   length: number;
   width: number;
   height: number;
+  weightLbs: number;
+  weightOz: number;
 };
 
 export type BoxOrientation = 'length-along-pallet' | 'width-along-pallet';

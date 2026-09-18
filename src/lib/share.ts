@@ -117,6 +117,28 @@ function validatePayload(raw: unknown): SharedPayload | null {
   ) {
     return null;
   }
+  let weightLbs = 25;
+  let weightOz = 0;
+  if (
+    typeof b.weightLbs === 'number' &&
+    !Number.isNaN(b.weightLbs) &&
+    b.weightLbs >= 0
+  ) {
+    weightLbs = b.weightLbs;
+    weightOz =
+      typeof b.weightOz === 'number' &&
+      !Number.isNaN(b.weightOz) &&
+      b.weightOz >= 0
+        ? b.weightOz
+        : 0;
+  } else if (
+    typeof b.weight === 'number' &&
+    !Number.isNaN(b.weight) &&
+    b.weight >= 0
+  ) {
+    weightLbs = Math.floor(b.weight);
+    weightOz = Math.round((b.weight - weightLbs) * 16);
+  }
   const layers = obj.layers;
   if (!Array.isArray(layers)) {
     return null;
@@ -144,7 +166,13 @@ function validatePayload(raw: unknown): SharedPayload | null {
   return {
     name,
     palletId: palletId as PalletStandardId,
-    box: { length: b.length, width: b.width, height: b.height },
+    box: {
+      length: b.length,
+      width: b.width,
+      height: b.height,
+      weightLbs,
+      weightOz,
+    },
     layers: validated,
   };
 }

@@ -138,9 +138,51 @@ export function totalBoxes(layouts: ReadonlyArray<LayerLayout>): number {
   return sum;
 }
 
+export function boxWeightInOz(box: {
+  weightLbs: number;
+  weightOz: number;
+}): number {
+  return Math.max(0, box.weightLbs) * 16 + Math.max(0, box.weightOz);
+}
+
+export function totalWeightInOz(
+  layouts: ReadonlyArray<LayerLayout>,
+  box: { weightLbs: number; weightOz: number },
+): number {
+  return totalBoxes(layouts) * boxWeightInOz(box);
+}
+
+export function totalWeight(
+  layouts: ReadonlyArray<LayerLayout>,
+  boxWeightLbs: number,
+): number {
+  return totalBoxes(layouts) * boxWeightLbs;
+}
+
 export function formatInches(value: number): string {
   const rounded = Math.round(value * 100) / 100;
   return Number.isInteger(rounded)
     ? `${rounded}"`
     : `${rounded.toFixed(rounded * 10 === Math.floor(rounded * 10) ? 1 : 2)}"`;
+}
+
+export function formatWeightLbsOz(totalOz: number): string {
+  if (Number.isNaN(totalOz) || totalOz <= 0) {
+    return '0 lbs';
+  }
+  const roundedOz = Math.round(totalOz * 100) / 100;
+  const lbs = Math.floor(roundedOz / 16);
+  const oz = Math.round((roundedOz % 16) * 100) / 100;
+
+  if (lbs === 0) {
+    return `${oz} oz`;
+  }
+  if (oz === 0) {
+    return `${lbs.toLocaleString('en-US')} ${lbs === 1 ? 'lb' : 'lbs'}`;
+  }
+  return `${lbs.toLocaleString('en-US')} ${lbs === 1 ? 'lb' : 'lbs'} ${oz} oz`;
+}
+
+export function formatWeight(lbs: number, oz = 0): string {
+  return formatWeightLbsOz(Math.max(0, lbs) * 16 + Math.max(0, oz));
 }

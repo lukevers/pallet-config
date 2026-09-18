@@ -40,7 +40,7 @@ function makeDefaultConfig(name = 'Untitled configuration'): SavedConfig {
     id: newId(),
     name,
     palletId: 'gma',
-    box: { length: 14, width: 10, height: 10 },
+    box: { length: 14, width: 10, height: 10, weightLbs: 25, weightOz: 0 },
     layers: [],
     updatedAt: Date.now(),
   };
@@ -70,6 +70,40 @@ function initialState(): AppState {
     activeId = imported.id;
     clearHash();
   }
+
+  configs = configs.map((c) => {
+    const rawBox = c.box as unknown as Record<string, unknown>;
+    let weightLbs = 25;
+    let weightOz = 0;
+    if (
+      typeof rawBox.weightLbs === 'number' &&
+      !Number.isNaN(rawBox.weightLbs) &&
+      rawBox.weightLbs >= 0
+    ) {
+      weightLbs = rawBox.weightLbs;
+      weightOz =
+        typeof rawBox.weightOz === 'number' &&
+        !Number.isNaN(rawBox.weightOz) &&
+        rawBox.weightOz >= 0
+          ? rawBox.weightOz
+          : 0;
+    } else if (
+      typeof rawBox.weight === 'number' &&
+      !Number.isNaN(rawBox.weight) &&
+      rawBox.weight >= 0
+    ) {
+      weightLbs = Math.floor(rawBox.weight);
+      weightOz = Math.round((rawBox.weight - weightLbs) * 16);
+    }
+    return {
+      ...c,
+      box: {
+        ...c.box,
+        weightLbs,
+        weightOz,
+      },
+    };
+  });
 
   if (configs.length === 0) {
     const def = makeDefaultConfig();

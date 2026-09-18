@@ -1,4 +1,4 @@
-import { formatInches } from '../lib/layout';
+import { boxWeightInOz, formatInches, formatWeightLbsOz } from '../lib/layout';
 import type { Box } from '../types';
 
 type Props = {
@@ -6,6 +6,7 @@ type Props = {
 };
 
 export function Header({ box }: Props) {
+  const weightOz = boxWeightInOz(box);
   return (
     <header className="bg-navy text-white">
       <div className="mx-auto flex max-w-[1400px] items-stretch gap-6 px-6 py-4">
@@ -19,6 +20,11 @@ export function Header({ box }: Props) {
             {formatInches(box.length)} × {formatInches(box.width)} ×{' '}
             {formatInches(box.height)}
           </span>
+          {weightOz > 0 ? (
+            <span className="ml-2 font-normal text-white/70">
+              · {formatWeightLbsOz(weightOz)}
+            </span>
+          ) : null}
         </p>
       </div>
     </header>
